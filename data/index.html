@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14111f">
+<title>🐱 Cat Laser</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>🐱 Cat Laser</h1>
+  <div class="chip" id="chip"><span class="dot"></span><span id="st">...</span></div>
+</header>
+
+<div class="warn hide" id="warn">⚠️ Обе серво выключены — двигаться нечему, работают только эффекты лазера.</div>
+
+<div class="card">
+  <h2>Режим игры</h2>
+  <div class="modes" id="modes"></div>
+</div>
+
+<div class="card hide" id="manCard">
+  <h2>Ручное управление</h2>
+  <div id="pad"><div id="padDot"></div></div>
+  <div class="hint" id="padHint"></div>
+</div>
+
+<div class="card">
+  <h2>Серво</h2>
+  <label class="sw"><span>↔ Горизонтальная серво (D4)</span><input type="checkbox" id="pen"><i></i></label>
+  <div class="sub"><label class="sw"><span>Инвертировать направление</span><input type="checkbox" id="invx"><i></i></label></div>
+  <label class="sw"><span>↕ Вертикальная серво (D5)</span><input type="checkbox" id="ten"><i></i></label>
+  <div class="sub"><label class="sw"><span>Инвертировать направление</span><input type="checkbox" id="invy"><i></i></label></div>
+  <div class="hint">Подключена одна серво — выключи вторую, режимы сами перестроятся на одну ось.</div>
+</div>
+
+<div class="card">
+  <h2>Зона игры</h2>
+  <svg id="field" viewBox="0 0 180 180"></svg>
+  <div class="row" id="rXmin"><div class="lab"><span>↔ Горизонталь от</span><em id="vXmin"></em></div><input type="range" id="xmin" min="0" max="180"></div>
+  <div class="row" id="rXmax"><div class="lab"><span>↔ Горизонталь до</span><em id="vXmax"></em></div><input type="range" id="xmax" min="0" max="180"></div>
+  <div class="row" id="rYmin"><div class="lab"><span>↕ Вертикаль от</span><em id="vYmin"></em></div><input type="range" id="ymin" min="0" max="180"></div>
+  <div class="row" id="rYmax"><div class="lab"><span>↕ Вертикаль до</span><em id="vYmax"></em></div><input type="range" id="ymax" min="0" max="180"></div>
+</div>
+
+<div class="card">
+  <h2>Движение</h2>
+  <div class="row"><div class="lab"><span>Скорость</span><em id="vSpeed"></em></div><input type="range" id="speed" min="1" max="10"></div>
+  <div class="row"><div class="lab"><span>Пауза от</span><em id="vPmin"></em></div><input type="range" id="pmin" min="0" max="10" step="0.1"></div>
+  <div class="row"><div class="lab"><span>Пауза до</span><em id="vPmax"></em></div><input type="range" id="pmax" min="0" max="10" step="0.1"></div>
+  <div class="row hide" id="rowAuto"><div class="lab"><span>🎰 Менять режим каждые</span><em id="vAuto"></em></div><input type="range" id="auto" min="5" max="120" step="5"></div>
+  <div class="row"><div class="lab"><span>⏱ Автостоп через</span><em id="vTimer"></em></div><input type="range" id="timer" min="0" max="60" step="1"></div>
+</div>
+
+<div class="card">
+  <h2>Лазер</h2>
+  <div class="lasers" id="lasers"></div>
+  <div class="row"><div class="lab"><span>Яркость</span><em id="vLbr"></em></div><input type="range" id="lbr" min="10" max="100" step="5"></div>
+  <div class="row"><div class="lab"><span>Частота эффекта</span><em id="vLrate"></em></div><input type="range" id="lrate" min="1" max="10"></div>
+  <div class="hint">Яркость и «Пульс» работают, если лазер управляется через транзистор. Если у модуля свой драйвер — выбирай режимы без плавной яркости.</div>
+</div>
+
+<div class="card">
+  <h2>🎯 Поведение игры</h2>
+  <label class="sw"><span>🧈 Плавный разгон и торможение серво</span><input type="checkbox" id="sm"><i></i></label>
+  <div class="row" id="rSacc"><div class="lab"><span>Резкость разгона</span><em id="vSacc"></em></div><input type="range" id="sacc" min="1" max="10"></div>
+  <label class="sw"><span>📈 Разгон и затухание сессии</span><input type="checkbox" id="ramp"><i></i></label>
+  <div class="row" id="rRpct"><div class="lab"><span>Доля сессии на разгон и на спад</span><em id="vRpct"></em></div><input type="range" id="rpct" min="5" max="45" step="5"></div>
+  <label class="sw"><span>🏁 Финал игры: замедление, замирание, гашение лазера</span><input type="checkbox" id="fin"><i></i></label>
+  <div class="row" id="rFinsec"><div class="lab"><span>Длительность финала</span><em id="vFinsec"></em></div><input type="range" id="finsec" min="3" max="60"></div>
+  <label class="sw"><span>🎼 Свой плейлист в «Авто»</span><input type="checkbox" id="plist"><i></i></label>
+  <div id="wlist" class="hide"></div>
+  <div class="hint">Всё это можно включать по отдельности. Разгон и финал работают, когда у игры есть конец (автостоп по таймеру или дежурная игра); в ручном режиме не применяются. Вес 0 — режим в «Авто» не играет, чем больше вес, тем он чаще.</div>
+</div>
+
+<div class="card">
+  <h2>🔧 Калибровка серво</h2>
+  <div class="cal">
+    <b>↔ Горизонталь (D4)</b>
+    <div class="row"><div class="lab"><span>Импульс для 0°</span><em id="vMn0"></em></div><input type="range" id="mn0" min="400" max="1500" step="10"></div>
+    <div class="row"><div class="lab"><span>Импульс для 180°</span><em id="vMx0"></em></div><input type="range" id="mx0" min="1500" max="2700" step="10"></div>
+    <div class="row"><div class="lab"><span>Смещение центра</span><em id="vOf0"></em></div><input type="range" id="of0" min="-30" max="30"></div>
+    <div class="tests"><button class="b" data-t="0:0">⏮ 0°</button><button class="b" data-t="0:1">⏺ Центр</button><button class="b" data-t="0:2">⏭ 180°</button></div>
+  </div>
+  <div class="cal">
+    <b>↕ Вертикаль (D5)</b>
+    <div class="row"><div class="lab"><span>Импульс для 0°</span><em id="vMn1"></em></div><input type="range" id="mn1" min="400" max="1500" step="10"></div>
+    <div class="row"><div class="lab"><span>Импульс для 180°</span><em id="vMx1"></em></div><input type="range" id="mx1" min="1500" max="2700" step="10"></div>
+    <div class="row"><div class="lab"><span>Смещение центра</span><em id="vOf1"></em></div><input type="range" id="of1" min="-30" max="30"></div>
+    <div class="tests"><button class="b" data-t="1:0">⏮ 0°</button><button class="b" data-t="1:1">⏺ Центр</button><button class="b" data-t="1:2">⏭ 180°</button></div>
+  </div>
+  <div class="hint">Кнопки двигают серво в крайние точки и центр с учётом калибровки, даже если она сейчас выключена. Если на крайних точках серво гудит и упирается — сузь импульсы (подними «0°» и опусти «180°»). Если центр смотрит не прямо — подправь смещение.</div>
+</div>
+
+<div class="card">
+  <h2>📊 Статистика</h2>
+  <label class="sw"><span>Вести статистику</span><input type="checkbox" id="sten"><i></i></label>
+  <div id="statsBody">
+    <div class="kpis">
+      <div class="kpi"><b id="kToday">—</b><span>сегодня</span></div>
+      <div class="kpi"><b id="kWeek">—</b><span>7 дней</span></div>
+      <div class="kpi"><b id="kTotal">—</b><span>всего</span></div>
+      <div class="kpi"><b id="kSess">—</b><span>запусков</span></div>
+    </div>
+    <div class="bars" id="bars"></div>
+    <div class="hint" id="stNote"></div>
+    <h3>Какие режимы играли чаще</h3>
+    <div id="topmodes"></div>
+    <div class="row"><div class="lab"><span>Часовой пояс устройства</span></div><select class="tx" id="tzsel"></select><input class="tx" id="tz" style="margin-top:8px" autocapitalize="off" autocomplete="off" placeholder="EET-2EEST,M3.5.0/3,M10.5.0/4"></div>
+    <div style="height:12px"></div>
+    <button class="b" id="stReset">🗑 Сбросить статистику</button>
+    <div class="hint">Файл статистики лежит в файловой системе: команда uploadfs стирает его.</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🎲 Сам играет (дежурный режим)</h2>
+  <label class="sw"><span>Сам затевать игру, пока никто не включил</span><input type="checkbox" id="se"><i></i></label>
+  <div class="row"><div class="lab"><span>Пауза между играми от</span><em id="vRmin"></em></div><input type="range" id="rmin" min="1" max="240"></div>
+  <div class="row"><div class="lab"><span>Пауза между играми до</span><em id="vRmax"></em></div><input type="range" id="rmax" min="1" max="240"></div>
+  <div class="row"><div class="lab"><span>Длительность игры</span><em id="vPlay"></em></div><input type="range" id="play" min="1" max="60"></div>
+  <div class="row"><div class="lab"><span>Режим игры</span></div><select class="tx" id="smode"></select></div>
+  <div class="hint">Статус: <b id="sst">...</b></div>
+  <div class="hint">Пауза каждый раз случайная в заданных пределах. Если остановить игру вручную, дежурный режим не отключается — следующая игра начнётся позже. Чтобы отключить совсем, выключи переключатель.</div>
+</div>
+
+<div class="card">
+  <h2>Умный дом · MQTT</h2>
+  <label class="sw"><span>Включить MQTT</span><input type="checkbox" id="mqen"><i></i></label>
+  <div class="row"><div class="grid2">
+    <div><div class="lab"><span>Брокер (адрес)</span></div><input class="tx" id="mqhost" placeholder="192.168.1.10" autocapitalize="off" autocomplete="off"></div>
+    <div><div class="lab"><span>Порт</span></div><input class="tx" id="mqport" type="number" min="1" max="65535" placeholder="1883"></div>
+  </div></div>
+  <div class="row"><div class="lab"><span>Логин (если нужен)</span></div><input class="tx" id="mquser" autocapitalize="off" autocomplete="off"></div>
+  <div class="row"><div class="lab"><span>Пароль</span></div><input class="tx" id="mqpass" type="password" autocomplete="new-password"></div>
+  <label class="sw"><span>Очистить сохранённый пароль</span><input type="checkbox" id="mqclr"><i></i></label>
+  <div class="row"><div class="lab"><span>Топик команд</span></div><input class="tx" id="mqtopic" autocapitalize="off" autocomplete="off" placeholder="home/catlaser/power"></div>
+  <div class="row"><div class="lab"><span>Какой режим запускать по ON</span></div><select class="tx" id="mqon"></select></div>
+  <div class="hint" id="mqhint"></div>
+  <div style="height:12px"></div>
+  <button class="b" id="mqsave">💾 Сохранить и подключить</button>
+  <div class="hint">Статус: <b id="mqst">...</b></div>
+</div>
+
+<div class="card">
+  <h2>Система</h2>
+  <label class="sw"><span>▶ Запускать при включении (с последним режимом)</span><input type="checkbox" id="astart"><i></i></label>
+  <div class="hint">💾 Настройки сохраняются автоматически.</div>
+  <div style="height:12px"></div>
+  <button class="b" id="wifi">📶 Сброс WiFi</button>
+</div>
+
+<small id="info"></small>
+</div>
+<div id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
