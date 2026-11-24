@@ -1,6 +1,6 @@
 #include "config.h"
 #include "hw.h"
-#include <EEPROM.h>
+#include "platform.h"
 
 Settings cfg;
 NetCfg   mqc;
@@ -21,6 +21,31 @@ static_assert(sizeof(Settings) <= NET_ADDR, "Settings залезает на об
 static_assert(NET_ADDR + sizeof(NetCfg) <= SESS_ADDR, "NetCfg залезает на область SessCfg");
 static_assert(SESS_ADDR + sizeof(SessCfg) <= FEAT_ADDR, "SessCfg залезает на область FeatCfg");
 static_assert(FEAT_ADDR + sizeof(FeatCfg) <= EEPROM_SIZE, "FeatCfg не помещается в EEPROM");
+
+// ---------- слой хранения: EEPROM на ESP8266, NVS (Preferences) на ESP32 ----------
+#if defined(PLATFORM_ESP32)
+#include <Preferences.h>
+static Preferences prefs;
+static void storeBegin() { prefs.begin("catlaser", false); }
+static void storeRead(const char *key, int, void *d, size_t n) {
+  memset(d, 0, n);                                         // если записи нет или размер не совпал — нули, дальше сработает проверка magic
+  if (prefs.getBytesLength(key) == n) prefs.getBytes(key, d, n);
+}
+static void storeWrite(const char *key, int, const void *d, size_t n) { prefs.putBytes(key, d, n); }
+static void storeCommit() {}
+#else
+#include <EEPROM.h>
+static void storeBegin() { EEPROM.begin(EEPROM_SIZE); }
+static void storeRead(const char *, int addr, void *d, size_t n) {
+  uint8_t *p = (uint8_t *)d;
+  for (size_t i = 0; i < n; i++) p[i] = EEPROM.read(addr + i);
+}
+static void storeWrite(const char *, int addr, const void *d, size_t n) {
+  const uint8_t *p = (const uint8_t *)d;
+  for (size_t i = 0; i < n; i++) EEPROM.write(addr + i, p[i]);
+}
+static void storeCommit() { EEPROM.commit(); }
+#endif
 
 static bool     dirty = false;
 static uint32_t dirtyAt = 0;
@@ -85,24 +110,24 @@ template <typename T> static T clampv(T v, T lo, T hi) { return v < lo ? lo : (v
 
 // ---------- загрузка / сохранение ----------
 void cfgLoad() {
-  EEPROM.begin(EEPROM_SIZE);
-  EEPROM.get(0, cfg);
+  storeBegin();
+  storeRead("cfg", 0, &cfg, sizeof(cfg));
   if (cfg.magic != CFG_MAGIC) defaultCfg();
 
-  EEPROM.get(NET_ADDR, mqc);
+  storeRead("net", NET_ADDR, &mqc, sizeof(mqc));
   if (mqc.magic != NET_MAGIC) defaultNet();
   mqc.host[sizeof(mqc.host) - 1] = 0;          // защита от мусора в строках
   mqc.user[sizeof(mqc.user) - 1] = 0;
   mqc.pass[sizeof(mqc.pass) - 1] = 0;
   mqc.topic[sizeof(mqc.topic) - 1] = 0;
 
-  EEPROM.get(SESS_ADDR, sess);
+  storeRead("sess", SESS_ADDR, &sess, sizeof(sess));
   if (sess.magic != SESS_MAGIC) defaultSess();
   if (sess.restMin < 1) sess.restMin = 1;
   if (sess.restMax < sess.restMin) sess.restMax = sess.restMin;
   if (sess.playMin < 1) sess.playMin = 1;
 
-  EEPROM.get(FEAT_ADDR, feat);
+  storeRead("feat", FEAT_ADDR, &feat, sizeof(feat));
   if (feat.magic != FEAT_MAGIC) defaultFeat();
   feat.smoothAcc = clampv<uint8_t>(feat.smoothAcc, 1, 10);
   feat.finaleSec = clampv<uint8_t>(feat.finaleSec, 3, 60);
@@ -117,11 +142,11 @@ void cfgLoad() {
 }
 
 void cfgSaveNow() {
-  EEPROM.put(0, cfg);
-  EEPROM.put(NET_ADDR, mqc);
-  EEPROM.put(SESS_ADDR, sess);
-  EEPROM.put(FEAT_ADDR, feat);
-  EEPROM.commit();
+  storeWrite("cfg", 0, &cfg, sizeof(cfg));
+  storeWrite("net", NET_ADDR, &mqc, sizeof(mqc));
+  storeWrite("sess", SESS_ADDR, &sess, sizeof(sess));
+  storeWrite("feat", FEAT_ADDR, &feat, sizeof(feat));
+  storeCommit();
   dirty = false;
 }
 

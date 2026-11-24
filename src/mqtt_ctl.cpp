@@ -2,7 +2,7 @@
 #include "config.h"
 #include "motion.h"
 #include "session.h"
-#include <ESP8266WiFi.h>
+#include "platform.h"
 #include <PubSubClient.h>
 
 static WiFiClient   mqNet;
@@ -63,7 +63,7 @@ void mqSetup() {
   mq.setServer(mqc.host, mqc.mqPort);
   mq.setCallback(callback);
   mq.setSocketTimeout(2);
-  mqNet.setTimeout(2000);     // не зависаем надолго, если брокер недоступен
+  tcpSetTimeoutMs(mqNet, 2000);     // не зависаем надолго, если брокер недоступен
 }
 
 void mqGoOffline() {          // вызывать ДО смены настроек, пока в mqc ещё старый топик
@@ -82,7 +82,7 @@ void mqApply() {              // применить новые настройк�
 }
 
 static bool connectNow() {
-  String id = "catlaser-" + String(ESP.getChipId(), HEX);
+  String id = "catlaser-" + chipIdHex();
   String lwt = topicLwt();
   bool ok;
   if (mqc.user[0]) ok = mq.connect(id.c_str(), mqc.user, mqc.pass, lwt.c_str(), 0, true, "offline");

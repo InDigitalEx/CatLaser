@@ -2,9 +2,17 @@
 #include <Arduino.h>
 
 // ===================== Железо =====================
-#define PAN_PIN            D4       // горизонтальная серво (GPIO2)
-#define TILT_PIN           D5       // вертикальная серво
-static const int8_t LASER_PIN = D1; // -1 если лазер не управляется с ESP
+#if defined(ARDUINO_ARCH_ESP32)
+  // ESP32 DevKit. Не используем пины загрузки (0, 2, 12, 15) и только-входные (34..39).
+  #define PAN_PIN            18       // горизонтальная серво
+  #define TILT_PIN           19       // вертикальная серво
+  static const int8_t LASER_PIN = 23; // -1 если лазер не управляется с ESP
+#else
+  // ESP8266 (Wemos D1 mini)
+  #define PAN_PIN            D4       // горизонтальная серво (GPIO2)
+  #define TILT_PIN           D5       // вертикальная серво
+  static const int8_t LASER_PIN = D1; // -1 если лазер не управляется с ESP
+#endif
 
 #define CAL_MIN_US_DEF     500      // импульс для 0° по умолчанию
 #define CAL_MAX_US_DEF     2400     // импульс для 180° по умолчанию

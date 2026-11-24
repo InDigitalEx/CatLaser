@@ -6,12 +6,10 @@
 #include "stats.h"
 #include "session.h"
 #include "mqtt_ctl.h"
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <LittleFS.h>
+#include "platform.h"
 #include <WiFiManager.h>
 
-static ESP8266WebServer server(80);
+static HttpServer server(80);
 
 // Если файловая система ещё не загружена, показываем подсказку вместо интерфейса
 static const char NO_FS_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
@@ -113,8 +111,8 @@ static void sendStateCode(int code) {
   j += F(",\"play\":");   j += sess.playMin;
   j += F(",\"snext\":");  j += snext;
   j += '}';
-  server.sendHeader(F("Cache-Control"), F("no-store"));
-  server.send(code, F("application/json"), j);
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(code, "application/json", j);
 }
 
 static void sendState() { sendStateCode(200); }
@@ -248,8 +246,8 @@ static void sendMqCfg() {
   j += F(",\"topic\":\"");   j += jsonEsc(mqc.topic);
   j += F("\",\"onmode\":");  j += mqc.onMode;
   j += '}';
-  server.sendHeader(F("Cache-Control"), F("no-store"));
-  server.send(200, F("application/json"), j);
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", j);
 }
 
 static void handleMqPost() {
@@ -257,7 +255,7 @@ static void handleMqPost() {
     String t = server.arg("topic");
     t.trim();
     if (t.length() == 0 || t.length() > 60 || t.indexOf('#') >= 0 || t.indexOf('+') >= 0) {
-      server.send(400, F("text/plain"), F("bad topic"));
+      server.send(400, "text/plain", "bad topic");
       return;
     }
   }
@@ -277,13 +275,13 @@ static void handleMqPost() {
 
 // ===================== Статический интерфейс из LittleFS =====================
 static void handleRoot() {
-  server.sendHeader(F("Cache-Control"), F("no-store"));
+  server.sendHeader("Cache-Control", "no-store");
   File f = LittleFS.open("/index.html", "r");
   if (!f) {
     server.send_P(200, "text/html; charset=utf-8", NO_FS_HTML);
     return;
   }
-  server.streamFile(f, F("text/html; charset=utf-8"));
+  server.streamFile(f, "text/html; charset=utf-8");
   f.close();
 }
 
@@ -298,15 +296,15 @@ void webInit() {
     sendState();
   });
   server.on("/api/stats", HTTP_GET, []() {
-    server.sendHeader(F("Cache-Control"), F("no-store"));
-    server.send(200, F("application/json"), statsJson());
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", statsJson());
   });
   server.on("/api/stats/reset", HTTP_POST, []() {
     statsReset();
-    server.send(200, F("application/json"), statsJson());
+    server.send(200, "application/json", statsJson());
   });
   server.on("/api/wifi-reset", HTTP_GET, []() {
-    server.send(200, F("text/plain"), F("ok"));
+    server.send(200, "text/plain", "ok");
     delay(300);
     cfgFlush();
     WiFiManager w;
@@ -315,7 +313,7 @@ void webInit() {
   });
   server.serveStatic("/app.js", LittleFS, "/app.js", "no-cache");
   server.serveStatic("/style.css", LittleFS, "/style.css", "no-cache");
-  server.onNotFound([]() { server.send(404, F("text/plain"), F("404")); });
+  server.onNotFound([]() { server.send(404, "text/plain", "404"); });
   server.begin();
 }
 

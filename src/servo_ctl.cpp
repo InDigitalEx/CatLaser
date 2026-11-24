@@ -10,6 +10,10 @@ bool     parkPending = false;
 static uint32_t parkLast = 0;
 
 void servoInit() {
+#if defined(PLATFORM_ESP32)
+  ESP32PWM::allocateTimer(0);     // аппаратные таймеры ШИМ под две серво
+  ESP32PWM::allocateTimer(1);
+#endif
   ax[0].pin = PAN_PIN;
   ax[1].pin = TILT_PIN;
   for (int i = 0; i < 2; i++) {

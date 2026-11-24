@@ -2,8 +2,7 @@
 #include "config.h"
 #include "hw.h"
 #include "motion.h"
-#include <ESP8266WiFi.h>
-#include <LittleFS.h>
+#include "platform.h"
 #include <time.h>
 
 // Статистика хранится в файле /stats.bin на LittleFS (с выравниванием износа).
@@ -134,7 +133,7 @@ void statsLoop() {
 
   // NTP нужен только для статистики по дням
   if (feat.statsEn && !ntpStarted && WiFi.status() == WL_CONNECTED) {
-    configTime(feat.tz, "pool.ntp.org", "time.google.com");
+    ntpConfigure(feat.tz, "pool.ntp.org", "time.google.com");
     ntpStarted = true;
   }
 

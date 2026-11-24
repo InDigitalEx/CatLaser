@@ -1,6 +1,6 @@
 #pragma once
 #include "common.h"
-#include <Servo.h>
+#include "platform.h"      // подключает Servo (ESP8266) или ESP32Servo (ESP32)
 
 // Две оси: 0 = горизонталь (pan), 1 = вертикаль (tilt)
 struct Axis {

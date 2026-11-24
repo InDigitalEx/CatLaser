@@ -3,6 +3,7 @@
 #include "hw.h"
 #include "motion.h"
 #include "servo_ctl.h"
+#include "platform.h"
 #include <math.h>
 
 static int16_t  lastLaserVal = -1;
@@ -12,8 +13,39 @@ static bool     flickerOn = true;
 static uint32_t flickerUntil = 0;
 static uint8_t  sosIdx = 0;
 static uint32_t sosUntil = 0;
-static bool     laserPwm = false;   // сейчас на пине работает программный ШИМ
+#if !defined(PLATFORM_ESP32)
+static bool     laserPwm = false;   // ESP8266: сейчас на пине работает программный ШИМ
+#endif
 
+#if defined(PLATFORM_ESP32)
+// ESP32: аппаратный ШИМ (LEDC) — серво он не мешает, поэтому ШИМ используется для всех значений.
+static const int LASER_LEDC_CH   = 15;     // канал для Arduino-ESP32 2.x (серво занимают младшие каналы)
+static const int LASER_LEDC_FREQ = 5000;
+static const int LASER_LEDC_BITS = 8;
+
+void laserInit() {
+  if (LASER_PIN < 0) return;
+#if defined(LEDC_NEW_API)
+  ledcAttach(LASER_PIN, LASER_LEDC_FREQ, LASER_LEDC_BITS);
+  ledcWrite(LASER_PIN, 0);
+#else
+  ledcSetup(LASER_LEDC_CH, LASER_LEDC_FREQ, LASER_LEDC_BITS);
+  ledcAttachPin(LASER_PIN, LASER_LEDC_CH);
+  ledcWrite(LASER_LEDC_CH, 0);
+#endif
+}
+
+static void laserSet(uint8_t v) {
+  if (LASER_PIN < 0 || v == lastLaserVal) return;   // не дёргаем пин зря
+  lastLaserVal = v;
+#if defined(LEDC_NEW_API)
+  ledcWrite(LASER_PIN, v);
+#else
+  ledcWrite(LASER_LEDC_CH, v);
+#endif
+}
+
+#else
 void laserInit() {
   if (LASER_PIN < 0) return;
   pinMode(LASER_PIN, OUTPUT);
@@ -21,7 +53,7 @@ void laserInit() {
   analogWrite(LASER_PIN, 0);
 }
 
-// Программный ШИМ ESP8266 делит один генератор импульсов с серво, и пока серво двигаются,
+// ESP8266: программный ШИМ делит один генератор импульсов с серво, и пока серво двигаются,
 // яркость плавает. Поэтому "горит" и "не горит" — обычный digitalWrite без ШИМ,
 // а ШИМ включается только для промежуточных значений (пульс, яркость меньше 100%, плавное гашение в финале).
 static void laserSet(uint8_t v) {
@@ -38,6 +70,7 @@ static void laserSet(uint8_t v) {
     analogWrite(LASER_PIN, v);
   }
 }
+#endif
 
 void laserOff() {
   lastLaserVal = -1;

@@ -1,5 +1,5 @@
 /*
- * 🐱 CatLaser — лазерная игрушка для кошки на ESP8266 (Wemos D1 mini), одна или две серво.
+ * 🐱 CatLaser — лазерная игрушка для кошки (ESP8266 или ESP32), одна или две серво.
  *
  * Модули (src/):
  *   hw.h          пины и тайминги             config.*    настройки в EEPROM и автосохранение
@@ -9,11 +9,14 @@
  *   session.*     дежурный режим              mqtt_ctl.*  умный дом (MQTT)
  *   web.*         веб-сервер и API; интерфейс лежит в data/ (LittleFS)
  *
- * Подключение:
- *   Серво PAN  (горизонталь): сигнал -> D4
- *   Серво TILT (вертикаль)  : сигнал -> D5
+ * Платформы: ESP8266 (Wemos D1 mini) и ESP32 DevKit — выбирается профилем PlatformIO (env:d1_mini / env:esp32dev).
+ *
+ * Подключение (ESP8266 / ESP32):
+ *   Серво PAN  (горизонталь): сигнал -> D4 / GPIO18
+ *   Серво TILT (вертикаль)  : сигнал -> D5 / GPIO19
+ *   Лазер (управление)      : D1 / GPIO23
  *   Серво: красный -> 5V, коричневый/чёрный -> GND (GND общий с платой!)
- *   Лазер: управляющий пин D1 (через транзистор/резистор). Если лазер горит постоянно — LASER_PIN = -1 в hw.h
+ *   Лазер: через транзистор/резистор. Если лазер горит постоянно — LASER_PIN = -1 в hw.h
  *
  * Первый запуск: точка доступа "CatLaser-Setup" -> выбираешь свой WiFi.
  * Дальше: http://catlaser.local или IP из монитора порта.
@@ -21,11 +24,9 @@
  */
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
+#include "platform.h"
 #include <ArduinoOTA.h>
 #include <WiFiManager.h>
-#include <LittleFS.h>
 
 #include "hw.h"
 #include "config.h"
@@ -42,14 +43,15 @@ void setup() {
   Serial.println();
 
   cfgLoad();
-  randomSeed(analogRead(A0) ^ ESP.getChipId() ^ micros());
+  randomSeed(hwRandomSeed());
 
-  if (!LittleFS.begin()) Serial.println(F("LittleFS не запустилась"));
+  if (!fsBegin()) Serial.println(F("LittleFS не запустилась"));
+  Serial.print(F("Платформа: ")); Serial.println(PLATFORM_NAME);
   servoInit();
   laserInit();
   statsInit();
 
-  WiFi.hostname(HOSTNAME);
+  setHostName(HOSTNAME);
   WiFiManager wm;
   wm.setConfigPortalTimeout(180);
   wm.setTitle("Cat Laser");
@@ -68,7 +70,7 @@ void setup() {
   ArduinoOTA.onStart([]() {
     servoDetachAll();
     laserOff();
-    if (ArduinoOTA.getCommand() == U_FS) LittleFS.end();   // обновление файловой системы по воздуху
+    if (ArduinoOTA.getCommand() == OTA_FS_CMD) LittleFS.end();   // обновление файловой системы по воздуху
   });
   ArduinoOTA.begin();
 
@@ -82,7 +84,7 @@ void setup() {
 
 void loop() {
   webLoop();
-  MDNS.update();
+  mdnsTick();
   ArduinoOTA.handle();
   updatePark();
   motionLoop();
